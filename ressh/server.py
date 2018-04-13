@@ -1,5 +1,6 @@
 import asyncio
 import asyncssh
+import logging
 
 import sys
 import traceback
@@ -17,19 +18,16 @@ class ReSSHServerSession(asyncssh.SSHTCPSession):
 
     def connection_lost(self, exc):
         print("Connection lost")
-        print(str(exc))
+        print(f"{exc}")
 
     def session_started(self):
         print("Connection successful")
-        # self._chan.write('Hi'.encode('utf8'))
 
     def data_received(self, data, datatype):
         print(f"Received data: {data}")
-
         self._dispatch(data)
 
     def eof_received(self):
-        # self._chan.write('Total = %s\n' % self._total)
         print("EOF")
         self._chan.exit(0)
 
@@ -101,18 +99,21 @@ class ReSSHServer(asyncssh.SSHServer):
         'DELETE': dict()
     }
 
-    def __init__(self, port=8022):
-        self.port = 8022
+    def __init__(self, port=8022, host_keys=['ssh_host_keys'], authorized_client_keys='authorized_keys'):
+        self.port = port
+        self._host_keys = host_keys
+        self._authorized_client_keys = authorized_client_keys
 
     def connection_requested(self, dest_host, dest_port, orig_host, orig_port):
         print("Connection requested", dest_host, dest_port, orig_host, orig_port)
-        # return asyncssh.create_tcp_channel(), MySSHServerSession()
         return ReSSHServerSession(ReSSHServer._callbacks)
 
     async def _create_server(self):
-        await asyncssh.create_server(ReSSHServer, '', self.port,
-                                     server_host_keys=['ssh_host_key'],
-                                     authorized_client_keys='ssh_authorized_keys')
+        await asyncssh.create_server(
+            ReSSHServer, '', self.port,
+            server_host_keys=self._host_keys,
+            authorized_client_keys=self._authorized_client_keys
+        )
 
     def add_callback(self, verb, resource, callback):
         if resource not in ReSSHServer._callbacks[verb]:
@@ -121,7 +122,7 @@ class ReSSHServer(asyncssh.SSHServer):
         ReSSHServer._callbacks[verb][resource].append(callback)
 
     def start(self):
-        print(f"Listening on port {self.port}")
+        logging.info(f"Listening on port {self.port}")
 
         loop = asyncio.get_event_loop()
 

@@ -17,7 +17,6 @@ class _SSHClient(asyncssh.SSHClient):
         logging.debug('Authentication successful.')
 
 
-# class _SSHClientSession(asyncssh.SSHClientSession):
 class _SSHClientSession(asyncssh.SSHTCPSession):
 
     def connection_made(self, chan):
@@ -27,7 +26,7 @@ class _SSHClientSession(asyncssh.SSHTCPSession):
 
     def connection_lost(self, exc):
         logging.debug("Connection lost")
-        logging.debug(str(exc))
+        logging.debug(f"{exc}")
 
     def session_started(self):
         logging.debug("Session successful")
@@ -63,10 +62,7 @@ class _SSHClientSession(asyncssh.SSHTCPSession):
 
 class ReSSHClient:
 
-    def __init__(self, host='localhost', port=8022, client_keys=['ssh_host_key'], known_hosts=None):
-        self._client_keys = client_keys
-        self._known_hosts = known_hosts
-
+    def __init__(self, host='localhost', port=8022, client_keys=None, known_hosts=None):
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
         self._session = asyncio.get_event_loop().run_until_complete(self.__connect(host, port))
@@ -83,16 +79,19 @@ class ReSSHClient:
         asyncio.set_event_loop(loop)
         loop.run_forever()
 
-    async def __connect(self, host, port):
+    async def __connect(self, host, port, known_hosts, client_keys):
         logging.info(f"Connecting to SSH Server {host}:{port}")
-        conn, client = await asyncssh.create_connection(_SSHClient, host, port, client_keys=self._client_keys, known_hosts=self._known_hosts)
+        conn, client = await asyncssh.create_connection(
+            _SSHClient,
+            host,
+            port,
+            client_keys=client_keys,
+            known_hosts=known_hosts
+        )
 
-        # async with conn:
         logging.debug("Opening Socket")
         chan, session = await conn.create_connection(_SSHClientSession, host, port)
         return session
-        # await chan.wait_closed()
-        # self._loop.close()
 
     def get(self, resource, body=None, callback=None):
         asyncio.run_coroutine_threadsafe(self._session.send_request("GET", resource, body, callback), self._loop)
