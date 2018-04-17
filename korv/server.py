@@ -8,66 +8,76 @@ import time
 import json
 
 
-class ReSSHServerSession(asyncssh.SSHTCPSession):
+class _KorvServerSession(asyncssh.SSHTCPSession):
     def __init__(self, callbacks):
         self._callbacks = callbacks
 
     def connection_made(self, chan):
-        print("Connection incoming")
+        """New connection established"""
+
+        logging.info("Connection incoming")
         self._chan = chan
 
     def connection_lost(self, exc):
-        print("Connection lost")
-        print(f"{exc}")
+        """Lost the connection to the client"""
+
+        logging.info("Connection lost")
+        logging.info(f"{exc}")
 
     def session_started(self):
-        print("Connection successful")
+        """New session established succesfully"""
+
+        logging.info("Connection successful")
 
     def data_received(self, data, datatype):
-        print(f"Received data: {data}")
+        """New data coming in"""
+
+        logging.info(f"Received data: {data}")
         self._dispatch(data)
 
     def eof_received(self):
-        print("EOF")
+        """Got an EOF, close the channel"""
+
+        logging.info("EOF")
         self._chan.exit(0)
 
     def _dispatch(self, data):
         try:
             request = json.loads(data.decode('utf-8'))
             if 'id' not in request:
-                print("Malformed request: missing 'id'")
+                logging.info("Malformed request: missing 'id'")
                 self._send_response(0, 400, {"message": "Missing 'id'"})
 
             if 'verb' not in request:
-                print("Malformed request: missing 'request'")
+                logging.info("Malformed request: missing 'request'")
                 self._send_response(request['id'], 400, {"message": "Missing 'verb'"})
 
             if 'resource' not in request:
-                print("Malformed request: missing 'resource'")
+                logging.info("Malformed request: missing 'resource'")
                 self._send_response(request['id'], 400, {"message": "Missing 'resource'"})
 
             if request['verb'] == 'STORE' and 'body' not in request['request']:
-                print("Malformed request: missing 'resource'")
+                logging.info("Malformed request: missing 'resource'")
                 self._send_response(request['id'], 400, {"message": "Missing 'body'"})
 
             elif request['verb'] == 'UPDATE' and 'body' not in request['request']:
-                print("Malformed request: missing 'resource'")
+                logging.info("Malformed request: missing 'resource'")
                 self._send_response(request['id'], 400, {"message": "Missing 'body'"})
 
         except Exception as e:
-            print("Unable to process request")
+            logging.info("Unable to process request")
             self._send_response(0, 400, {"message": "Unable to process request"})
 
-        self._process_request(request)
+        self.__process_request(request)
 
-    def _process_request(self, request):
+    def __process_request(self, request):
         if request['verb'] not in self._callbacks:
-            print(f"No callback found for {request['verb']}")
+            logging.info(f"No callback found for {request['verb']}")
             self._send_response(request['id'], 404)
             return
 
         if request['resource'] not in self._callbacks[request['verb']]:
-            print(f"No callback found for {request['verb']} on {request['resource']}")
+            logging.info(f"No callback found for {request['verb']} on {request['resource']}")
             self._send_response(request['id'], 404)
             return
 
@@ -76,10 +86,12 @@ class ReSSHServerSession(asyncssh.SSHTCPSession):
                 self._send_response(request['id'], *callback(request))
 
             except Exception as e:
-                print(f"Internal error when executing {request['verb']} on {request['resource']}")
+                logging.info(f"Internal error when executing {request['verb']} on {request['resource']}")
                 self._send_response(request['id'], 500, {"message": str(e), "traceback": traceback.format_exc()})
 
     def _send_response(self, request_id, code, body=None):
+        """Send a response to the given client request"""
+
         cmd = {
             'id': time.time(),
             'request_id': request_id,
@@ -87,48 +99,58 @@ class ReSSHServerSession(asyncssh.SSHTCPSession):
             'body': body
         }
 
-        print(f"Sending response {cmd}")
+        logging.info(f"Sending response {cmd}")
         self._chan.write(json.dumps(cmd).encode('utf-8'))
 
 
-class ReSSHServer(asyncssh.SSHServer):
-    _callbacks = {
-        'GET': dict(),
-        'STORE': dict(),
-        'UPDATE': dict(),
-        'DELETE': dict()
-    }
+class KorvServer(asyncssh.SSHServer):
+    VERBS = ('GET', 'STORE', 'UPDATE', 'DELETE')
 
-    def __init__(self, port=8022, host_keys=['ssh_host_keys'], authorized_client_keys='authorized_keys'):
+    _callbacks = { verb: dict() for verb in VERBS}
+
+    def __init__(self, port=8022, host_keys=['ssh_host_key'], authorized_client_keys='authorized_keys'):
+        """Instatiate an SSH server that listens on the given port for clients that match the authorized keys"""
+
         self.port = port
         self._host_keys = host_keys
         self._authorized_client_keys = authorized_client_keys
 
     def connection_requested(self, dest_host, dest_port, orig_host, orig_port):
-        print("Connection requested", dest_host, dest_port, orig_host, orig_port)
-        return ReSSHServerSession(ReSSHServer._callbacks)
+        """Run a new TCP session that handles an SSH client connection"""
 
-    async def _create_server(self):
+        logging.info("Connection requested", dest_host, dest_port, orig_host, orig_port)
+        return _KorvServerSession(KorvServer._callbacks)
+
+    async def __create_server(self):
+        """Creates an asynchronous SSH server"""
+
         await asyncssh.create_server(
-            ReSSHServer, '', self.port,
+            KorvServer, '', self.port,
             server_host_keys=self._host_keys,
             authorized_client_keys=self._authorized_client_keys
         )
 
     def add_callback(self, verb, resource, callback):
-        if resource not in ReSSHServer._callbacks[verb]:
-            ReSSHServer._callbacks[verb][resource] = list()
+        """Configure a callable to execute when receiving a request with the given verb and resource combination"""
 
-        ReSSHServer._callbacks[verb][resource].append(callback)
+        if verb not in KorvServer.VERBS:
+            raise ValueError(f"Verb must be one of {KorvServer.VERBS}")
+
+        if resource not in KorvServer._callbacks[verb]:
+            KorvServer._callbacks[verb][resource] = list()
+
+        KorvServer._callbacks[verb][resource].append(callback)
 
     def start(self):
+        """Start the server"""
+
         logging.info(f"Listening on port {self.port}")
 
         loop = asyncio.get_event_loop()
 
         try:
-            loop.run_until_complete(self._create_server())
+            loop.run_until_complete(self.__create_server())
         except (OSError, asyncssh.Error) as exc:
-            sys.exit('Error starting server: ' + str(exc))
+            sys.exit(f'Error starting server: {exc}')
 
         loop.run_forever()

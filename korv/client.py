@@ -11,10 +11,10 @@ import logging
 
 class _SSHClient(asyncssh.SSHClient):
     def connection_made(self, conn):
-        logging.debug('Connection made to %s.' % conn.get_extra_info('peername')[0])
+        logging.debug(f'Connection made to conn.get_extra_info('peername')[0]')
 
     def auth_completed(self):
-        logging.debug('Authentication successful.')
+        logging.debug('Authentication successful')
 
 
 class _SSHClientSession(asyncssh.SSHTCPSession):
@@ -60,12 +60,12 @@ class _SSHClientSession(asyncssh.SSHTCPSession):
         logging.debug(f"{verb} {resource} {body}")
 
 
-class ReSSHClient:
+class KorvClient:
 
     def __init__(self, host='localhost', port=8022, client_keys=None, known_hosts=None):
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
-        self._session = asyncio.get_event_loop().run_until_complete(self.__connect(host, port))
+        self._session = asyncio.get_event_loop().run_until_complete(self.__connect(host, port, known_hosts, client_keys))
 
         try:
             t = Thread(target=self.__start_loop, args=(self._loop,))
@@ -73,7 +73,7 @@ class ReSSHClient:
             # asyncio.run_coroutine_threadsafe(self.__connect(), self._loop)
 
         except (OSError, asyncssh.Error) as exc:
-            sys.exit('SSH connection failed: ' + str(exc))
+            sys.exit(f'SSH connection failed: {exc}')
 
     def __start_loop(self, loop):
         asyncio.set_event_loop(loop)
