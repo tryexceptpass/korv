@@ -11,7 +11,7 @@ import logging
 
 class _SSHClient(asyncssh.SSHClient):
     def connection_made(self, conn):
-        logging.debug(f'Connection made to conn.get_extra_info('peername')[0]')
+        logging.debug(f"Connection made to conn.get_extra_info('peername')[0]")
 
     def auth_completed(self):
         logging.debug('Authentication successful')
