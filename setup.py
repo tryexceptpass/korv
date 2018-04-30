@@ -12,7 +12,7 @@ setup(
     author_email = "cmedina@tryexceptpass.org",
 
     name = "korv",
-    version = "0.1.0",
+    version = "0.1.1",
     description = "SSH API Frameowrk",
     long_description=long_description,
     long_description_content_type='text/markdown',
