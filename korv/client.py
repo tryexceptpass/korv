@@ -38,7 +38,11 @@ class _SSHClientSession(asyncssh.SSHTCPSession):
         if data['request_id'] in self._requests:
             if callable(self._requests[data['request_id']]):
                 self._requests[data['request_id']](data)
-            del(self._requests[data['request_id']])
+
+            if self._requests[data['request_id']] is None:
+                self._requests[data['request_id']] = data
+            else:
+                del(self._requests[data['request_id']])
 
     def eof_received(self):
         logging.debug("Received EOF")
@@ -58,6 +62,8 @@ class _SSHClientSession(asyncssh.SSHTCPSession):
         self._requests[send_request['id']] = callback
         self._chan.write(json.dumps(send_request).encode('utf-8'))
         logging.debug(f"{verb} {resource} {body}")
+
+        return send_request['id']
 
 
 class KorvClient:
@@ -94,8 +100,18 @@ class KorvClient:
         return session
 
     def get(self, resource, body=None, callback=None):
-        asyncio.run_coroutine_threadsafe(self._session.send_request("GET", resource, body, callback), self._loop)
-        # await self._session.send_request("GET", resource, body)
+        if callback is None:
+            request_id = asyncio.run_coroutine_threadsafe(self._session.send_request("GET", resource, body, None), self._loop).result()
+
+            while self._session._requests[request_id] is None:
+                time.sleep(0.1)
+
+            response = self._session._requests[request_id]
+            del(self._session._requests[request_id])
+
+            return response
+        else:
+            asyncio.run_coroutine_threadsafe(self._session.send_request("GET", resource, body, callback), self._loop)
 
     def store(self, resource, body):
         asyncio.run_coroutine_threadsafe(self._session.send_request("STORE", resource, body, callback), self._loop)
