@@ -106,7 +106,7 @@ class _KorvServerSession(asyncssh.SSHTCPSession):
 class KorvServer(asyncssh.SSHServer):
     VERBS = ('GET', 'STORE', 'UPDATE', 'DELETE')
 
-    _callbacks = { verb: dict() for verb in VERBS}
+    _callbacks = {verb: dict() for verb in VERBS}
 
     def __init__(self, port=8022, host_keys=['ssh_host_key'], authorized_client_keys='authorized_keys'):
         """Instatiate an SSH server that listens on the given port for clients that match the authorized keys"""
@@ -118,7 +118,7 @@ class KorvServer(asyncssh.SSHServer):
     def connection_requested(self, dest_host, dest_port, orig_host, orig_port):
         """Run a new TCP session that handles an SSH client connection"""
 
-        logging.info("Connection requested", dest_host, dest_port, orig_host, orig_port)
+        logging.info(f"Connection requested {dest_host} {dest_port} {orig_host} {orig_port}")
         return _KorvServerSession(KorvServer._callbacks)
 
     async def __create_server(self):
@@ -150,6 +150,7 @@ class KorvServer(asyncssh.SSHServer):
 
         try:
             loop.run_until_complete(self.__create_server())
+
         except (OSError, asyncssh.Error) as exc:
             sys.exit(f'Error starting server: {exc}')
 

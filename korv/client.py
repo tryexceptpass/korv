@@ -34,15 +34,19 @@ class _SSHClientSession(asyncssh.SSHTCPSession):
     def data_received(self, data, datatype):
         logging.debug(f"Received data: {data}")
 
-        data = json.loads(data)
-        if data['request_id'] in self._requests:
-            if callable(self._requests[data['request_id']]):
-                self._requests[data['request_id']](data)
+        try:
+            data = json.loads(data)
+            if data['request_id'] in self._requests:
+                if callable(self._requests[data['request_id']]):
+                    self._requests[data['request_id']](data)
 
-            if self._requests[data['request_id']] is None:
-                self._requests[data['request_id']] = data
-            else:
-                del(self._requests[data['request_id']])
+                if self._requests[data['request_id']] is None:
+                    self._requests[data['request_id']] = data
+                else:
+                    del(self._requests[data['request_id']])
+
+        except Exception:
+            logging.exception(f"There was an error processing the server response")
 
     def eof_received(self):
         logging.debug("Received EOF")
@@ -68,7 +72,9 @@ class _SSHClientSession(asyncssh.SSHTCPSession):
 
 class KorvClient:
 
-    def __init__(self, host='localhost', port=8022, client_keys=None, known_hosts=None):
+    def __init__(self, host='localhost', port=8022, client_keys=None, known_hosts=None, max_packet_size=None):
+        self.max_packet_size = max_packet_size
+
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
         self._session = asyncio.get_event_loop().run_until_complete(self.__connect(host, port, known_hosts, client_keys))
@@ -96,7 +102,7 @@ class KorvClient:
         )
 
         logging.debug("Opening Socket")
-        chan, session = await conn.create_connection(_SSHClientSession, host, port)
+        chan, session = await conn.create_connection(_SSHClientSession, host, port, max_pktsize=self.max_packet_size)
         return session
 
     def get(self, resource, body=None, callback=None):
@@ -113,11 +119,11 @@ class KorvClient:
         else:
             asyncio.run_coroutine_threadsafe(self._session.send_request("GET", resource, body, callback), self._loop)
 
-    def store(self, resource, body):
+    def store(self, resource, body, callback=None):
         asyncio.run_coroutine_threadsafe(self._session.send_request("STORE", resource, body, callback), self._loop)
 
-    def update(self, resource, body):
+    def update(self, resource, body, callback=None):
         asyncio.run_coroutine_threadsafe(self._session.send_request("UPDATE", resource, body, callback), self._loop)
 
-    def delete(self, resource, body=None):
+    def delete(self, resource, body=None, callback=None):
         asyncio.run_coroutine_threadsafe(self._session.send_request("DELETE", resource, body, callback), self._loop)

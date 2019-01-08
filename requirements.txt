@@ -1,7 +1,1 @@
-asn1crypto==0.24.0
-asyncssh==1.12.1
-cffi==1.11.5
-cryptography>=2.3
-idna==2.6
-pycparser==2.18
-six==1.11.0
+asyncssh==1.15.0
