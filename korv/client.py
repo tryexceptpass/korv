@@ -68,7 +68,9 @@ class _SSHClientSession(asyncssh.SSHTCPSession):
 
 class KorvClient:
 
-    def __init__(self, host='localhost', port=8022, client_keys=None, known_hosts=None):
+    def __init__(self, host='localhost', port=8022, client_keys=None, known_hosts=None, max_packet_size=None):
+        self.max_packet_size = max_packet_size
+
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
         self._session = asyncio.get_event_loop().run_until_complete(self.__connect(host, port, known_hosts, client_keys))
@@ -96,7 +98,7 @@ class KorvClient:
         )
 
         logging.debug("Opening Socket")
-        chan, session = await conn.create_connection(_SSHClientSession, host, port)
+        chan, session = await conn.create_connection(_SSHClientSession, host, port, max_pktsize=self.max_packet_size)
         return session
 
     def get(self, resource, body=None, callback=None):
