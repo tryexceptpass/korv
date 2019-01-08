@@ -118,7 +118,7 @@ class KorvServer(asyncssh.SSHServer):
     def connection_requested(self, dest_host, dest_port, orig_host, orig_port):
         """Run a new TCP session that handles an SSH client connection"""
 
-        logging.info("Connection requested", dest_host, dest_port, orig_host, orig_port)
+        logging.info(f"Connection requested {dest_host} {dest_port} {orig_host} {orig_port}")
         return _KorvServerSession(KorvServer._callbacks)
 
     async def __create_server(self):
