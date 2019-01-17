@@ -12,8 +12,8 @@ setup(
     author_email = "cmedina@tryexceptpass.org",
 
     name = "korv",
-    version = "0.2.0",
-    description = "SSH API Frameowrk",
+    version = "0.2.1",
+    description = "SSH API Framework",
     long_description=long_description,
     long_description_content_type='text/markdown',
 
