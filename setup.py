@@ -12,7 +12,7 @@ setup(
     author_email = "cmedina@tryexceptpass.org",
 
     name = "korv",
-    version = "0.1.3",
+    version = "0.2.0",
     description = "SSH API Frameowrk",
     long_description=long_description,
     long_description_content_type='text/markdown',
@@ -36,6 +36,7 @@ setup(
 
                     'Programming Language :: Python :: 3 :: Only',
                     'Programming Language :: Python :: 3.6',
+                    'Programming Language :: Python :: 3.7',
 
                     'Development Status :: 4 - Beta',
                   ],

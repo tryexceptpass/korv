@@ -7,6 +7,7 @@ from threading import Thread
 import time
 import json
 import logging
+import gzip
 
 
 class _SSHClient(asyncssh.SSHClient):
@@ -35,7 +36,8 @@ class _SSHClientSession(asyncssh.SSHTCPSession):
         logging.debug(f"Received data: {data}")
 
         try:
-            data = json.loads(data)
+            data = json.loads(gzip.decompress(data).decode('utf-8'))
+
             if data['request_id'] in self._requests:
                 if callable(self._requests[data['request_id']]):
                     self._requests[data['request_id']](data)
@@ -56,23 +58,23 @@ class _SSHClientSession(asyncssh.SSHTCPSession):
         if verb not in ['GET', 'STORE', 'UPDATE', 'DELETE']:
             raise ValueError("Unknown verb")
 
-        send_request = {
+        request = {
             'id': time.time(),
             'verb': verb,
             'resource': resource,
             'body': body
         }
 
-        self._requests[send_request['id']] = callback
-        self._chan.write(json.dumps(send_request).encode('utf-8'))
+        self._requests[request['id']] = callback
+        self._chan.write(gzip.compress(json.dumps(request, separators=[',', ':']).encode('utf-8')))
         logging.debug(f"{verb} {resource} {body}")
 
-        return send_request['id']
+        return request['id']
 
 
 class KorvClient:
 
-    def __init__(self, host='localhost', port=8022, client_keys=None, known_hosts=None, max_packet_size=None):
+    def __init__(self, host='localhost', port=8022, client_keys=None, known_hosts=None, max_packet_size=32768):
         self.max_packet_size = max_packet_size
 
         self._loop = asyncio.new_event_loop()

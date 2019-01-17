@@ -6,6 +6,7 @@ import sys
 import traceback
 import time
 import json
+import gzip
 
 
 class _KorvServerSession(asyncssh.SSHTCPSession):
@@ -43,7 +44,8 @@ class _KorvServerSession(asyncssh.SSHTCPSession):
 
     def _dispatch(self, data):
         try:
-            request = json.loads(data.decode('utf-8'))
+            request = json.loads(gzip.decompress(data).decode('utf-8'))
+
             if 'id' not in request:
                 logging.info("Malformed request: missing 'id'")
                 self._send_response(0, 400, {"message": "Missing 'id'"})
@@ -100,7 +102,7 @@ class _KorvServerSession(asyncssh.SSHTCPSession):
         }
 
         logging.info(f"Sending response {cmd}")
-        self._chan.write(json.dumps(cmd).encode('utf-8'))
+        self._chan.write(gzip.compress(json.dumps(cmd, separators=[',', ':']).encode('utf-8')))
 
 
 class KorvServer(asyncssh.SSHServer):

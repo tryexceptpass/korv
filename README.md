@@ -61,7 +61,7 @@ Following is an example on how to communicate with this server.
 >>> k = KorvClient(client_keys=['PATH_TO_YOUR_CLIENTS_PRIVATE_KEY'])
 >>>
 >>> # Issue a GET request and print the output
->>> k.get('/hello', lambda response: print(response['body']))
+>>> k.get('/hello', callback=lambda response: print(response['body']))
 >>> {'msg': 'Hello World!'}
 ```
 
